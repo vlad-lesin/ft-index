@@ -926,6 +926,8 @@ clone_pair(evictor* ev, PAIR p) {
     PAIR_ATTR new_attr;
     long clone_size = 0;
 
+    p->value_rwlock.assert_is_current_writer();
+
     // act of cloning should be fast,
     // not sure if we have to release
     // and regrab the cachetable lock,
@@ -1034,6 +1036,7 @@ write_pair_for_checkpoint_thread (evictor* ev, PAIR p)
     // will be cheap.  Also, much of the time we'll just be clearing
     // pending bits and that's definitely cheap. (see #5427)
     p->value_rwlock.write_lock(false);
+    p->value_rwlock.assert_is_current_writer();
     if (p->checkpoint_pending && p->checkpoint_complete_callback) {
         p->checkpoint_complete_callback(p->value_data);
     }

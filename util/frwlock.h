@@ -125,6 +125,7 @@ public:
     uint32_t blocked_writers(void) const;
     uint32_t readers(void) const;
     uint32_t blocked_readers(void) const;
+    void assert_is_current_writer(void) const;
 
 private:
     struct queue_item {

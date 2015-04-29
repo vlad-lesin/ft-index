@@ -361,4 +361,8 @@ uint32_t frwlock::blocked_readers(void) const {
     return m_num_want_read;
 }
 
+void frwlock::assert_is_current_writer(void) const {
+    assert(m_num_writers == 1 && m_current_writer_tid == toku_os_gettid());
+}
+
 } // namespace toku
