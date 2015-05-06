@@ -1473,14 +1473,18 @@ static bool try_pin_pair(
     bool dep_checkpoint_pending[num_dependent_pairs];
     bool try_again = true;
     bool expensive = (lock_type == PL_WRITE_EXPENSIVE);
+    uint64_t tstart = toku_current_time_microsec();
     if (lock_type != PL_READ) {
         p->value_rwlock.write_lock(expensive);
     }
     else {
         p->value_rwlock.read_lock();
     }
+    uint64_t tend = toku_current_time_microsec();
     pair_touch(p);
     pair_unlock(p);
+    if (tend - tstart > 10000)
+        fprintf(stderr, "%s %u %" PRIu64 "\n", __FUNCTION__, toku_os_gettid(), tend - tstart);
 
     bool partial_fetch_required = pf_req_callback(p->value_data,read_extraargs);
     
