@@ -119,6 +119,28 @@ PATENT RIGHTS GRANT:
 // for each FT_UPDATE message sent earlier by the transaction?
 #define TOKU_DO_COMMIT_CMD_UPDATE 0
 
+
+int
+toku_commit_imove (BYTESTRING    dname,
+                   BYTESTRING    old_iname,
+                   BYTESTRING    new_iname,
+                   TOKUTXN    txn,
+                   LSN        UU(oplsn))
+{
+    return 0;
+}
+
+int
+toku_rollback_imove (BYTESTRING    dname,
+                     BYTESTRING    old_iname,
+                     BYTESTRING    new_iname,
+                     TOKUTXN    txn,
+                     LSN        UU(oplsn))
+{
+    return 0;
+}
+
+
 int
 toku_commit_fdelete (FILENUM    filenum,
                      TOKUTXN    txn,

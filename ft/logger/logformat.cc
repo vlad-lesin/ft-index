@@ -136,6 +136,11 @@ struct logtype {
 // In the fields, don't mention the command, the LSN, the CRC or the trailing LEN.
 
 const struct logtype rollbacks[] = {
+    //move or rename iname
+    {"imove", 'm', FA{{"BYTESTRING",    "dname", 0},
+                      {"BYTESTRING",    "old_iname", 0},
+                      {"BYTESTRING",    "new_iname", 0},
+                        NULLFIELD}, LOG_BEGIN_ACTION_NA},
     //TODO: #2037 Add dname
     {"fdelete", 'U', FA{{"FILENUM",    "filenum", 0},
                         NULLFIELD}, LOG_BEGIN_ACTION_NA},

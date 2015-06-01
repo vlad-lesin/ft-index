@@ -85,13 +85,17 @@ int main(void) {
         assert_zero(r);
     }
 
+    std::string dbdir(dbenv->i->dir);
+
     for (auto &i : dps) {
-        std::string db_name = get_db_name(i.dname);
         toku_struct_stat stat;
-        std::string iname_path = std::string(dbenv->i->dir) + (i.iname.c_str() + 2);
-        std::string db_name_path = std::string(dbenv->i->dir) + db_name;
-        std::string new_iname_path = db_name_path + "/" + (i.iname.c_str() + 2);
-        std::string new_iname = "./" + db_name + "/" + (i.iname.c_str() + 2);
+
+        std::string db_name = get_db_name(i.dname);
+        std::string new_iname = "./" + db_name + "/" + (i.iname.c_str() + 2 + db_name.size() + 2);
+        std::string iname_path = dbdir + (i.iname.c_str() + 2);
+        std::string db_name_path = dbdir + db_name;
+        std::string new_iname_path = dbdir + (new_iname.c_str() + 2);
+
         if (toku_stat(db_name_path.c_str(), &stat) == -1) {
             if(ENOENT == errno) {
                 if (toku_os_mkdir(db_name_path.c_str(), 0777)) {
