@@ -3,8 +3,10 @@
 
 #include "src/ydb_db.h"
 #include "src/ydb_write.h"
+#include "src/ydb-internal.h"
 #include "ft/ft.h"
 #include "ft/txn/txn.h"
+#include "ft/logger/log-internal.h"
 #include "toku_assert.h"
 
 #include <vector>
@@ -108,29 +110,43 @@ int main(void) {
             }
         }
 
-        if (link(iname_path.c_str(), new_iname_path.c_str()) == -1) {
+        r = dbenv->txn_begin(dbenv, 0, &txn, DB_READ_UNCOMMITTED);
+        assert_zero(r);
+
+        BYTESTRING bt_dname = {static_cast<uint32_t>(i.dname.size()) + 1, const_cast<char *>(i.dname.c_str())};
+        BYTESTRING bt_old_iname = {static_cast<uint32_t>(i.iname.size()) + 1, const_cast<char *>(i.iname.c_str())};
+        BYTESTRING bt_new_iname = {static_cast<uint32_t>(new_iname.size()) + 1, const_cast<char *>(new_iname.c_str())};
+
+        TOKUTXN tokutxn = db_txn_struct_i(txn)->tokutxn;
+
+        // make entry in rollback log
+        toku_logger_save_rollback_imove(tokutxn, &bt_dname, &bt_old_iname, &bt_new_iname);
+        // make entry in recovery log
+        toku_logger_log_imove(tokutxn, bt_dname, bt_old_iname, bt_new_iname);
+
+
+        if (rename(iname_path.c_str(), new_iname_path.c_str()) == -1) {
             fprintf(stderr, "link error\n");
             return EXIT_FAILURE;
         }
-
+//toku_construct_full_name
         toku_fill_dbt(&curr_key, i.dname.c_str(), i.dname.size() + 1);
         toku_fill_dbt(&curr_val, new_iname.c_str(), new_iname.size() + 1);
-
-        r = dbenv->txn_begin(dbenv, 0, &txn, DB_READ_UNCOMMITTED);
-        assert_zero(r);
 
         r = toku_db_put(dbenv->i->directory, txn, &curr_key, &curr_val, 0, true);
         assert_zero(r);
 
+//        if (unlink(iname_path.c_str()) == -1) {
+//            fprintf(stderr, "link error\n");
+//            return EXIT_FAILURE;
+//        }
+
         if (txn) {
-            r = txn->commit(txn, 0);
-            assert_zero(r);
+        //    r = txn->commit(txn, 0);
+            txn->abort(txn);
+        //    assert_zero(r);
         }
 
-        if (unlink(iname_path.c_str()) == -1) {
-            fprintf(stderr, "link error\n");
-            return EXIT_FAILURE;
-        }
 
         printf("%s - %s\n", i.dname.c_str(), db_name.c_str());
     }

@@ -137,7 +137,7 @@ struct logtype {
 
 const struct logtype rollbacks[] = {
     //move or rename iname
-    {"imove", 'm', FA{{"BYTESTRING",    "dname", 0},
+    {"imove", 'n', FA{{"BYTESTRING",    "dname", 0},
                       {"BYTESTRING",    "old_iname", 0},
                       {"BYTESTRING",    "new_iname", 0},
                         NULLFIELD}, LOG_BEGIN_ACTION_NA},
@@ -249,6 +249,12 @@ const struct logtype logtypes[] = {
     {"fclose",   'e', FA{{"BYTESTRING", "iname", 0},
                          {"FILENUM",    "filenum", 0},
                          NULLFIELD}, IGNORE_LOG_BEGIN},
+
+    {"imove", 'n', FA{{"BYTESTRING",    "dname", 0},
+                      {"BYTESTRING",    "old_iname", 0},
+                      {"BYTESTRING",    "new_iname", 0},
+                        NULLFIELD}, IGNORE_LOG_BEGIN},
+
     //TODO: #2037 Add dname
     {"fdelete", 'U', FA{{"TXNID_PAIR",      "xid", 0},
                         {"FILENUM", "filenum", 0},

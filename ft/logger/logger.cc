@@ -916,6 +916,15 @@ void toku_logger_log_fcreate (TOKUTXN txn, const char *fname, FILENUM filenum, u
     }
 }
 
+void toku_logger_log_imove (TOKUTXN txn,
+                            BYTESTRING &dname,
+                            BYTESTRING &old_iname,
+                            BYTESTRING &new_iname) {
+    if (txn) {
+        //No fsync.
+        toku_log_imove (txn->logger, (LSN*)0, 0, dname, old_iname, new_iname);
+    }
+}
 
 // We only do fdelete on open ft's, so we pass the filenum here
 void toku_logger_log_fdelete (TOKUTXN txn, FILENUM filenum) {

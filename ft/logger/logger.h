@@ -158,6 +158,10 @@ struct FILENUMS {
 };
 
 void toku_logger_log_fcreate(TOKUTXN txn, const char *fname, FILENUM filenum, uint32_t mode, uint32_t flags, uint32_t nodesize, uint32_t basementnodesize, enum toku_compression_method compression_method);
+void toku_logger_log_imove (TOKUTXN txn,
+                            BYTESTRING &dname,
+                            BYTESTRING &old_iname,
+                            BYTESTRING &new_iname);
 void toku_logger_log_fdelete(TOKUTXN txn, FILENUM filenum);
 void toku_logger_log_fopen(TOKUTXN txn, const char * fname, FILENUM filenum, uint32_t treeflags);
 

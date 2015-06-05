@@ -99,6 +99,8 @@ PATENT RIGHTS GRANT:
 #include "ft/txn/txn_manager.h"
 #include "util/omt.h"
 
+#include <memory>
+
 int tokuft_recovery_trace = 0;                    // turn on recovery tracing, default off.
 
 //#define DO_VERIFY_COUNTS
@@ -966,6 +968,54 @@ static int toku_recover_backward_fclose (struct logtype_fclose *UU(l), RECOVER_E
     return 0;
 }
 
+// imove is a transactional file delete.
+static int toku_recover_imove (struct logtype_imove *l, RECOVER_ENV renv) {
+    assert(renv);
+    assert(renv->env);
+
+    toku_struct_stat stat;
+    const char *data_dir = renv->env->get_real_data_dir(renv->env);
+    bool old_exist = true;
+    bool new_exist = true;
+
+    if (!data_dir)
+        return 1;
+
+    std::unique_ptr<char[], decltype(&toku_free)>
+        old_iname_full(toku_construct_full_name(2, data_dir, l->old_iname.data + 2),
+                &toku_free);
+    std::unique_ptr<char[], decltype(&toku_free)>
+        new_iname_full(toku_construct_full_name(2, data_dir, l->new_iname.data + 2),
+                &toku_free);
+
+    if (toku_stat(old_iname_full.get(), &stat) == -1) {
+        if(ENOENT == errno)
+            old_exist = false;
+        else
+            return 1;
+    }
+
+    if (toku_stat(new_iname_full.get(), &stat) == -1) {
+        if(ENOENT == errno)
+            new_exist = false;
+        else
+            return 1;
+    }
+
+    if (!old_exist && !new_exist)
+        return 1;
+
+    if (old_exist) {
+        if (new_exist && (unlink(new_iname_full.get()) == -1))
+            return 1;
+        if (rename(old_iname_full.get(), new_iname_full.get()) == -1)
+            return 1;
+        return 0;
+    }
+
+    return 0;
+}
+
 // fdelete is a transactional file delete.
 static int toku_recover_fdelete (struct logtype_fdelete *l, RECOVER_ENV renv) {
     TOKUTXN txn = NULL;
@@ -981,6 +1031,11 @@ static int toku_recover_fdelete (struct logtype_fdelete *l, RECOVER_ENV renv) {
     if (r == 0) {
         toku_ft_unlink_on_commit(tuple->ft_handle, txn);
     }
+    return 0;
+}
+
+static int toku_recover_backward_imove (struct logtype_imove *UU(l), RECOVER_ENV UU(renv)) {
+    // nothing
     return 0;
 }
 
