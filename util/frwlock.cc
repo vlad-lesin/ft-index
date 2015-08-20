@@ -41,6 +41,8 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 #include <util/context.h>
 #include <util/frwlock.h>
 
+toku_instr_key *frwlock_m_wait_read_key;
+
 namespace toku {
 
 static __thread int thread_local_tid = -1;
@@ -51,7 +53,12 @@ static int get_local_tid() {
     return thread_local_tid;
 }
 
-void frwlock::init(toku_mutex_t *const mutex) {
+void frwlock::init(
+ toku_mutex_t *const mutex
+#if defined(TOKU_MYSQL_WITH_PFS)
+ , const toku_instr_key &rwlock_instr_key
+#endif
+  ) {
     m_mutex = mutex;
 
     m_num_readers = 0;
@@ -60,8 +67,10 @@ void frwlock::init(toku_mutex_t *const mutex) {
     m_num_want_read = 0;
     m_num_signaled_readers = 0;
     m_num_expensive_want_write = 0;
-    
-    toku_cond_init(&m_wait_read, nullptr);
+#if defined(TOKU_MYSQL_WITH_PFS)
+    toku_pthread_rwlock_init(rwlock_instr_key, &m_rwlock, nullptr);
+#endif
+    toku_cond_init(toku_uninstrumented, &m_wait_read, nullptr);
     m_queue_item_read.cond = &m_wait_read;
     m_queue_item_read.next = nullptr;
     m_wait_read_is_in_queue = false;
@@ -76,6 +85,9 @@ void frwlock::init(toku_mutex_t *const mutex) {
 
 void frwlock::deinit(void) {
     toku_cond_destroy(&m_wait_read);
+#if defined(TOKU_MYSQL_WITH_PFS)
+    toku_pthread_rwlock_destroy(&m_rwlock);
+#endif
 }
 
 bool frwlock::queue_is_empty(void) const {
@@ -106,8 +118,20 @@ toku_cond_t *frwlock::deq_item(void) {
 
 // Prerequisite: Holds m_mutex.
 void frwlock::write_lock(bool expensive) {
+
+#if defined(TOKU_MYSQL_WITH_PFS)
+    /* Instrumentation start */
+    toku_rwlock_instrumentation rwlock_instr;
+    toku_instr_rwlock_wrlock_wait_start(rwlock_instr, m_rwlock,
+                                            __FILE__, __LINE__);
+#endif
+
     toku_mutex_assert_locked(m_mutex);
     if (this->try_write_lock(expensive)) {
+#if defined(TOKU_MYSQL_WITH_PFS)
+        /* Instrumentation end */
+        toku_instr_rwlock_wrlock_wait_end(rwlock_instr, 0);
+#endif
         return;
     }
 
@@ -145,6 +169,12 @@ void frwlock::write_lock(bool expensive) {
     m_current_writer_expensive = expensive;
     m_current_writer_tid = get_local_tid();
     m_blocking_writer_context_id = toku_thread_get_context()->get_id();
+
+#if defined(TOKU_MYSQL_WITH_PFS)
+    /* Instrumentation end */
+    toku_instr_rwlock_wrlock_wait_end(rwlock_instr, 0);
+#endif
+
 }
 
 bool frwlock::try_write_lock(bool expensive) {
@@ -163,6 +193,12 @@ bool frwlock::try_write_lock(bool expensive) {
 }
 
 void frwlock::read_lock(void) {
+#if defined(TOKU_MYSQL_WITH_PFS)
+  /* Instrumentation start */
+    toku_rwlock_instrumentation rwlock_instr;
+    toku_instr_rwlock_rdlock_wait_start(rwlock_instr, m_rwlock,
+                                            __FILE__, __LINE__);  
+#endif
     toku_mutex_assert_locked(m_mutex);
     if (m_num_writers > 0 || m_num_want_write > 0) {
         if (!m_wait_read_is_in_queue) {
@@ -198,6 +234,11 @@ void frwlock::read_lock(void) {
         --m_num_signaled_readers;
     }
     ++m_num_readers;
+#if defined(TOKU_MYSQL_WITH_PFS)
+    /* Instrumentation end */
+    toku_instr_rwlock_rdlock_wait_end(rwlock_instr, 0);
+#endif
+
 }
 
 bool frwlock::try_read_lock(void) {
@@ -223,6 +264,9 @@ void frwlock::maybe_signal_next_writer(void) {
 }
 
 void frwlock::read_unlock(void) {
+#ifdef TOKU_MYSQL_WITH_PFS
+    toku_instr_rwlock_unlock(m_rwlock);
+#endif
     toku_mutex_assert_locked(m_mutex);
     paranoid_invariant(m_num_writers == 0);
     paranoid_invariant(m_num_readers > 0);
@@ -267,6 +311,9 @@ void frwlock::maybe_signal_or_broadcast_next(void) {
 }
 
 void frwlock::write_unlock(void) {
+#if defined(TOKU_MYSQL_WITH_PFS)
+    toku_instr_rwlock_unlock(m_rwlock);
+#endif
     toku_mutex_assert_locked(m_mutex);
     paranoid_invariant(m_num_writers == 1);
     m_num_writers = 0;

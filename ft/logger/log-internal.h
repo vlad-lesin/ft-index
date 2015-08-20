@@ -70,7 +70,7 @@ struct mylock {
 };
 
 static inline void ml_init(struct mylock *l) {
-    toku_mutex_init(&l->lock, 0);
+    toku_mutex_init(*log_internal_lock_mutex_key, &l->lock, 0);
 }
 static inline void ml_lock(struct mylock *l) {
     toku_mutex_lock(&l->lock);

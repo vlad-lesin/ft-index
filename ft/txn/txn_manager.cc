@@ -56,6 +56,8 @@ void set_test_txn_sync_callback(void (*cb) (pthread_t, void *), void *extra) {
 }
 bool garbage_collection_debug = false;
 
+toku_instr_key *txn_manager_lock_mutex_key;
+
 static bool txn_records_snapshot(TXN_SNAPSHOT_TYPE snapshot_type, struct tokutxn *parent) {
     if (snapshot_type == TXN_COPIES_SNAPSHOT) {
         return false;
@@ -250,7 +252,8 @@ verify_snapshot_system(TXN_MANAGER txn_manager UU()) {
 
 void toku_txn_manager_init(TXN_MANAGER* txn_managerp) {
     TXN_MANAGER XCALLOC(txn_manager);
-    toku_mutex_init(&txn_manager->txn_manager_lock, NULL);
+    toku_mutex_init(*txn_manager_lock_mutex_key,
+                    &txn_manager->txn_manager_lock, nullptr);
     txn_manager->live_root_txns.create();
     txn_manager->live_root_ids.create();
     txn_manager->snapshot_head = NULL;

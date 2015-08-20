@@ -118,10 +118,5 @@ int toku_fsync_dir_by_name_without_accounting(const char *dir_name);
 // Return 0 on success, otherwise an error number
 int toku_get_filesystem_sizes(const char *path, uint64_t *avail_size, uint64_t *free_size, uint64_t *total_size);
 
-// Portable linux 'stat'
-int toku_stat(const char *name, toku_struct_stat *statbuf) __attribute__((__visibility__("default")));
-// Portable linux 'fstat'
-int toku_fstat(int fd, toku_struct_stat *statbuf) __attribute__((__visibility__("default")));
-
 // Portable linux 'dup2'
 int toku_dup2(int fd, int fd2) __attribute__((__visibility__("default")));

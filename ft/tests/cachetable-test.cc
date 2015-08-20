@@ -45,7 +45,7 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 toku_mutex_t  test_mutex;
 
 static inline void test_mutex_init(void) {
-    toku_mutex_init(&test_mutex, 0);
+    toku_mutex_init(toku_uninstrumented, &test_mutex, 0);
 }
 
 static inline void test_mutex_destroy(void) {

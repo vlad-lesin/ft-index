@@ -1394,7 +1394,7 @@ static int do_recovery(RECOVER_ENV renv, const char *env_dir, const char *log_di
 
     {
         toku_struct_stat buf;
-        if (toku_stat(env_dir, &buf)!=0) {
+        if (toku_stat(env_dir, &buf, toku_uninstrumented)) {
             rr = get_error_errno();
             fprintf(stderr, "%.24s PerconaFT recovery error: directory does not exist: %s\n", ctime(&tnow), env_dir);
             goto errorexit;

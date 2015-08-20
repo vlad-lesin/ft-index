@@ -9,6 +9,18 @@ project(TokuDB)
 set(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
 set(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 
+# detect when we are being built as a subproject
+if (DEFINED MYSQL_PROJECT_NAME_DOCSTRING)
+  add_definitions( -DMYSQL_TOKUDB_ENGINE=1)
+  # Extended PFS instrumentation:
+  # -DTOKU_PFS_MUTEX_EXTENDED_CACHETABLEMMUTEX=1
+  # TODO laurynas: set on or off the below depending on MYSQL w/ w/o
+  # PFS status
+  add_definitions(-DTOKU_MYSQL_WITH_PFS)
+  include_directories(${CMAKE_SOURCE_DIR}/include)
+
+endif ()
+
 ## Versions of gcc >= 4.9.0 require special version of 'ar' and 'ranlib' for
 ## link-time optimizations to work properly.
 ##

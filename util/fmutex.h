@@ -38,6 +38,8 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 
 #pragma once
 
+extern toku_instr_key *fmutex_cond_key;
+
 // fair mutex
 struct fmutex {
     pthread_mutex_t mutex;
@@ -98,7 +100,7 @@ void fmutex_lock(struct fmutex *fm) {
     }
 
     pthread_cond_t cond;
-    pthread_cond_init(&cond, NULL);
+    pthread_cond_init(*fmutex_cond_key, &cond, NULL);
     struct queue_item item = { .cond = &cond, .next = NULL };
     enq_item(fm, &item);
 

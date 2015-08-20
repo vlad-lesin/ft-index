@@ -540,7 +540,8 @@ int toku_txn_begin(DB_ENV *env, DB_TXN * stxn, DB_TXN ** txn, uint32_t flags) {
     db_txn_struct_i(result)->iso = child_isolation;
     db_txn_struct_i(result)->lt_map.create_no_array();
 
-    toku_mutex_init(&db_txn_struct_i(result)->txn_mutex, NULL);
+    toku_mutex_init(*db_txn_struct_i_txn_mutex_key,
+                    &db_txn_struct_i(result)->txn_mutex, nullptr);
 
     TXN_SNAPSHOT_TYPE snapshot_type;
     switch(db_txn_struct_i(result)->iso){
@@ -603,7 +604,8 @@ void toku_keep_prepared_txn_callback (DB_ENV *env, TOKUTXN tokutxn) {
 
     toku_txn_set_container_db_txn(tokutxn, result);
 
-    toku_mutex_init(&db_txn_struct_i(result)->txn_mutex, NULL);
+    toku_mutex_init(*db_txn_struct_i_txn_mutex_key,
+                    &db_txn_struct_i(result)->txn_mutex, nullptr);
 }
 
 // Test-only function

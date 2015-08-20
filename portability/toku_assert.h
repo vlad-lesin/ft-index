@@ -53,7 +53,7 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 #error NDEBUG should not be set
 #endif
 
-static inline int get_error_errno(void);
+inline int get_error_errno(void);
 
 static inline int
 get_maybe_error_errno(void)
@@ -142,7 +142,7 @@ void db_env_do_backtrace(FILE *outf);
 #define paranoid_invariant_zero(a) ((void) 0)
 #endif
 
-static inline int
+inline int
 get_error_errno(void)
 {
     invariant(errno);

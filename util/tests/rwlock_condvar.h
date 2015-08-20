@@ -70,7 +70,7 @@ void toku_cv_fair_rwlock_init (toku_cv_fair_rwlock_t *rwlock) {
     rwlock->state=0;
     rwlock->waiters_head = NULL;
     rwlock->waiters_tail = NULL;
-    toku_mutex_init(&rwlock->mutex, NULL);
+    toku_mutex_init(toku_uninstrumented,&rwlock->mutex, NULL);
 }
 
 void toku_cv_fair_rwlock_destroy (toku_cv_fair_rwlock_t *rwlock) {

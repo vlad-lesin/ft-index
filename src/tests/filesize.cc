@@ -174,7 +174,7 @@ get_file_pathname(void) {
 static int
 getsizeM(void) {
     toku_struct_stat buf;
-    int r = toku_stat(path, &buf);
+    int r = toku_stat(path, &buf, toku_uninstrumented);
     CKERR(r);
     int sizeM = (int)buf.st_size >> 20;
     check_fragmentation();
