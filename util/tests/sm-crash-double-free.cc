@@ -64,10 +64,11 @@ int main(void) {
     toku_scoped_malloc_init();
     toku_pthread_t tid;
     int r;
-    r = toku_pthread_create(&tid, NULL, sm_test_f, NULL);
+    r = toku_pthread_create(toku_uninstrumented, &tid, NULL, sm_test_f, NULL);
     assert_zero(r);
     void *ret;
-    while (state != 1) sleep(1);
+    while (state != 1)
+        sleep(1);
     toku_scoped_malloc_destroy_set();
     state = 2;
     r = toku_pthread_join(tid, &ret);

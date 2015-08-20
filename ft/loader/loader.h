@@ -38,6 +38,7 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 
 #pragma once
 
+#include "toku_portability.h"
 #include "ft/txn/txn.h"
 #include "ft/cachetable/cachetable.h"
 #include "ft/comparator.h"
@@ -77,8 +78,8 @@ int toku_ft_loader_abort(FTLOADER bl,
                           bool is_error);
 
 // For test purposes only
-void toku_ft_loader_set_size_factor (uint32_t factor);
+void toku_ft_loader_set_size_factor(uint32_t factor);
 
-void ft_loader_set_os_fwrite (size_t (*fwrite_fun)(const void*,size_t,size_t,FILE*));
+#define ft_loader_set_os_fwrite(F) toku_set_func_fwrite(F)
 
 size_t ft_loader_leafentry_size(size_t key_size, size_t val_size, TXNID xid);
