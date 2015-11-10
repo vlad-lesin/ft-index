@@ -420,6 +420,7 @@ static void print_db_env_struct (void) {
                              "int (*set_client_pool_threads)(DB_ENV *, uint32_t)",
                              "int (*set_cachetable_pool_threads)(DB_ENV *, uint32_t)",
                              "int (*set_checkpoint_pool_threads)(DB_ENV *, uint32_t)",
+                             "const char *(*get_data_dir)                 (DB_ENV *env)",
                              NULL};
 
         sort_and_dump_fields("db_env", true, extra);

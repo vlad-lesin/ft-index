@@ -1311,6 +1311,12 @@ env_get_cachesize(DB_ENV * env, uint32_t *gbytes, uint32_t *bytes, int *ncache) 
 
 #endif
 
+static const char *
+env_get_data_dir(DB_ENV * env) {
+  return env->i->real_data_dir;
+}
+
+
 static int 
 env_set_data_dir(DB_ENV * env, const char *dir) {
     HANDLE_PANICKED_ENV(env);
@@ -2590,6 +2596,7 @@ toku_env_create(DB_ENV ** envp, uint32_t flags) {
     USENV(set_errcall);
     USENV(set_errfile);
     USENV(set_errpfx);
+    USENV(get_data_dir);
     USENV(set_data_dir);
     USENV(checkpointing_set_period);
     USENV(checkpointing_get_period);
@@ -2961,6 +2968,7 @@ env_dbrename(DB_ENV *env, DB_TXN *txn, const char *fname, const char *dbname, co
         return EINVAL;
     }
     HANDLE_READ_ONLY_TXN(txn);
+
     if (dbname != NULL) {
         // env_dbrename_subdb() converts (fname, dbname) to dname and (fname, newname) to newdname
         return env_dbrename_subdb(env, txn, fname, dbname, newname, flags);

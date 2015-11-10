@@ -84,7 +84,7 @@ ydb_db_layer_get_status(YDB_DB_LAYER_STATUS statp) {
 }
 
 static void
-create_iname_hint(const char *dname, char *hint) {
+create_iname_hint_for_dbdir(const char *dname, char *hint) {
     //Requires: size of hint array must be > strlen(dname)
     //Copy alphanumeric characters only.
     //Replace strings of non-alphanumeric characters with a single underscore.
@@ -104,36 +104,62 @@ create_iname_hint(const char *dname, char *hint) {
     }
     *hint = '\0';
 }
-
+/*
+static void
+create_iname_hint_for_dbdir(const char *dname, char *hint) {
+    assert(*dname++ == '.' && *dname++ == '/');
+    //Requires: size of hint array must be > strlen(dname)
+    //Copy alphanumeric characters only.
+    //Replace strings of non-alphanumeric characters with a single underscore.
+    bool underscored = false;
+    bool dbdir_is_parsed = false;
+    while (*dname) {
+        if (isalnum(*dname) || (*dname == '/' && !dbdir_is_parsed)) {
+            char c = *dname++;
+            *hint++ = c;
+            if (c == '/')
+                dbdir_is_parsed = true;
+            underscored = false;
+        }
+        else {
+            if (!underscored)
+                *hint++ = '_';
+            dname++;
+            underscored = true;
+        }
+    }
+    *hint = '\0';
+}
+*/
 // n < 0  means to ignore mark and ignore n
 // n >= 0 means to include mark ("_B_" or "_P_") with hex value of n in iname
 // (intended for use by loader, which will create many inames using one txnid).
 static char *
 create_iname(DB_ENV *env, uint64_t id1, uint64_t id2, char *hint, const char *mark, int n) {
     int bytes;
-    char inamebase[strlen(hint) +
-                   8 +  // hex file format version
-                   24 + // hex id (normally the txnid's parent and child)
-                   8  + // hex value of n if non-neg
-                   sizeof("_B___.") + // extra pieces
-                   strlen(toku_product_name)];
+    char iname[strlen(hint) +
+               8 +  // hex file format version
+               24 + // hex id (normally the txnid's parent and child)
+               8  + // hex value of n if non-neg
+               sizeof("_B___.") + // extra pieces
+               strlen(toku_product_name)];
     if (n < 0)
-        bytes = snprintf(inamebase, sizeof(inamebase),
+        bytes = snprintf(iname, sizeof(iname),
                          "%s_%" PRIx64 "_%" PRIx64 "_%" PRIx32            ".%s",
                          hint, id1, id2, FT_LAYOUT_VERSION, toku_product_name);
     else {
         invariant(strlen(mark) == 1);
-        bytes = snprintf(inamebase, sizeof(inamebase),
+        bytes = snprintf(iname, sizeof(iname),
                          "%s_%" PRIx64 "_%" PRIx64 "_%" PRIx32 "_%s_%" PRIx32 ".%s",
                          hint, id1, id2, FT_LAYOUT_VERSION, mark, n, toku_product_name);
     }
     assert(bytes>0);
-    assert(bytes<=(int)sizeof(inamebase)-1);
+    assert(bytes<=(int)sizeof(iname)-1);
     char *rval;
     if (env->i->data_dir)
-        rval = toku_construct_full_name(2, env->i->data_dir, inamebase);
+        rval = toku_construct_full_name(2, env->i->data_dir, iname);
     else
-        rval = toku_construct_full_name(1, inamebase);
+        rval = toku_construct_full_name(1, iname);
     assert(rval);
     return rval;
 }
@@ -304,7 +330,7 @@ toku_db_open(DB * db, DB_TXN * txn, const char *fname, const char *dbname, DBTYP
         } else {
             id1 = toku_sync_fetch_and_add(&nontransactional_open_id, 1);
         }
-        create_iname_hint(dname, hint);
+        create_iname_hint_for_dbdir(dname, hint);
         iname = create_iname(db->dbenv, id1, id2, hint, NULL, -1);  // allocated memory for iname
         toku_fill_dbt(&iname_dbt, iname, strlen(iname) + 1);
         //
@@ -1161,7 +1187,7 @@ load_inames(DB_ENV * env, DB_TXN * txn, int N, DB * dbs[/*N*/], const char * new
         toku_fill_dbt(&dname_dbt, dname, strlen(dname)+1);
         // now create new iname
         char hint[strlen(dname) + 1];
-        create_iname_hint(dname, hint);
+        create_iname_hint_for_dbdir(dname, hint);
         const char *new_iname = create_iname(env, xid.parent_id64, xid.child_id64, hint, mark, i);               // allocates memory for iname_in_env
         new_inames_in_env[i] = new_iname;
         toku_fill_dbt(&iname_dbt, new_iname, strlen(new_iname) + 1);      // iname_in_env goes in directory
