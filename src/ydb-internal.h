@@ -132,6 +132,7 @@ struct __toku_db_env_internal {
     int datadir_lockfd;
     int logdir_lockfd;
     int tmpdir_lockfd;
+    bool dir_per_db;
     uint64_t (*get_loader_memory_size_callback)(void);
     uint64_t default_lock_timeout_msec;
     uint64_t (*get_lock_timeout_callback)(uint64_t default_lock_timeout_msec);

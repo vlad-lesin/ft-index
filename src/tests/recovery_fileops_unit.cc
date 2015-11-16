@@ -38,6 +38,7 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 
 #include "test.h"
 #include "toku_pthread.h"
+#include "ft/logger/logger.h"
 #include <db.h>
 #include <sys/stat.h>
 #include <stdlib.h>
@@ -625,8 +626,11 @@ recover_and_verify(void) {
         else if (did_create_commit_early())
             expect_old_name = 1;
     }
-    verify_file_exists(oldname, expect_old_name);
-    verify_file_exists(newname, expect_new_name);
+    // We can't expect files existence until recovery log was not flushed
+    if ((get_choice_flush_log_before_crash())) {
+        verify_file_exists(oldname, expect_old_name);
+        verify_file_exists(newname, expect_new_name);
+    }
     env_shutdown();
 }
 
