@@ -165,6 +165,7 @@ basement nodes, bulk fetch,  and partial fetch:
 #include "ft/txn/txn_manager.h"
 #include "ft/ule.h"
 #include "ft/txn/xids.h"
+#include "src/ydb-internal.h"
 
 #include <toku_race_tools.h>
 
@@ -179,6 +180,7 @@ basement nodes, bulk fetch,  and partial fetch:
 
 #include <stdint.h>
 
+#include <memory>
 /* Status is intended for display to humans to help understand system behavior.
  * It does not need to be perfectly thread-safe.
  */
@@ -4403,6 +4405,46 @@ void toku_ft_unlink(FT_HANDLE handle) {
     cf = handle->ft->cf;
     toku_cachefile_unlink_on_close(cf);
 }
+
+int toku_ft_rename_iname(DB_TXN     *txn,
+                         const char *data_dir,
+                         const char *old_iname,
+                         const char *new_iname,
+                         CACHETABLE ct) {
+    int r = 0;
+
+    std::unique_ptr<char[], decltype(&toku_free)> new_iname_full(nullptr, &toku_free);
+    std::unique_ptr<char[], decltype(&toku_free)> old_iname_full(nullptr, &toku_free);
+
+    new_iname_full.reset(toku_construct_full_name(2, data_dir, new_iname));
+    old_iname_full.reset(toku_construct_full_name(2, data_dir, old_iname));
+
+    if (txn) {
+        BYTESTRING bs_old_name = {static_cast<uint32_t>(strlen(old_iname) + 1), const_cast<char *>(old_iname)};
+        BYTESTRING bs_new_name = {static_cast<uint32_t>(strlen(new_iname) + 1), const_cast<char *>(new_iname)};
+        FILENUM filenum = FILENUM_NONE;
+        {
+            CACHEFILE cf;
+            r = toku_cachefile_of_iname_in_env(ct, old_iname, &cf);
+            if (r != ENOENT) {
+                char *old_fname_in_cf = toku_cachefile_fname_in_env(cf);
+                toku_cachefile_set_fname_in_env(cf, toku_xstrdup(new_iname));
+                toku_free(old_fname_in_cf);
+                filenum = toku_cachefile_filenum(cf);
+            }
+        }
+        toku_logger_save_rollback_frename(db_txn_struct_i(txn)->tokutxn, &bs_old_name, &bs_new_name);
+        toku_log_frename (db_txn_struct_i(txn)->tokutxn->logger, (LSN*)0, 0,
+                toku_txn_get_txnid(db_txn_struct_i(txn)->tokutxn), bs_old_name, filenum, bs_new_name);
+    }
+
+    r = toku_os_rename(old_iname_full.get(), new_iname_full.get());
+    if (r != 0)
+        return r;
+    r = toku_fsync_directory(new_iname_full.get());
+    return r;
+}
+
 
 int toku_ft_get_fragmentation(FT_HANDLE ft_handle, TOKU_DB_FRAGMENTATION report) {
     int fd = toku_cachefile_get_fd(ft_handle->ft->cf);
