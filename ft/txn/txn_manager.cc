@@ -538,7 +538,7 @@ void toku_txn_manager_handle_snapshot_create_for_child_txn(
         inherit_snapshot_from_parent(txn);
     }
    
-    toku_debug_txn_sync(pthread_self());
+    toku_debug_txn_sync(reinterpret_cast<uint64_t>(pthread_self()));
     
     if (copies_snapshot) { 
 	if(!records_snapshot) 
