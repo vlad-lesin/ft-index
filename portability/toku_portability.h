@@ -117,10 +117,39 @@ Copyright (c) 2006, 2015, Percona and/or its affiliates. All rights reserved.
 typedef int64_t toku_off_t;
 #endif
 
+typedef unsigned int pfs_key_t;
+
 #include "toku_os.h"
 #include "toku_htod.h"
 #include "toku_assert.h"
 #include "toku_crash.h"
+
+// Branch prediction macros.
+// If supported by the compiler, will hint in inctruction caching for likely
+// branching. Should only be used where there is a very good idea of the correct
+// branch heuristics as determined by profiling. Mostly copied from InnoDB.
+// Use:
+//   "if (FT_LIKELY(x))" where the chances of "x" evaluating true are higher
+//   "if (FT_UNLIKELY(x))" where the chances of "x" evaluating false are higher
+#if defined(__GNUC__) && (__GNUC__ > 2) && ! defined(__INTEL_COMPILER)
+
+// Tell the compiler that 'expr' probably evaluates to 'constant'.
+#define FT_EXPECT(expr,constant) __builtin_expect(expr, constant)
+
+#else
+
+#warning "No FT branch prediction operations in use!"
+#define FT_EXPECT(expr,constant) (expr)
+
+#endif // defined(__GNUC__) && (__GNUC__ > 2) && ! defined(__INTEL_COMPILER)
+
+// Tell the compiler that cond is likely to hold
+#define FT_LIKELY(cond) FT_EXPECT(bool(cond), true)
+
+// Tell the compiler that cond is unlikely to hold
+#define FT_UNLIKELY(cond) FT_EXPECT(bool(cond), false)
+
+#include "toku_instrumentation.h"
 
 #define UU(x) x __attribute__((__unused__))
 
@@ -269,6 +298,9 @@ ssize_t toku_os_pwrite (int fd, const void *buf, size_t len, toku_off_t off) __a
 int toku_os_write (int fd, const void *buf, size_t len) __attribute__((__visibility__("default")));
 
 // wrappers around file system calls
+
+inline
+void toku_instr_mutex_unlock(PSI_mutex *mutex_instr);
 
 void toku_os_recursive_delete(const char *path);
 
@@ -468,3 +500,35 @@ void toku_portability_destroy(void);
 static inline uint64_t roundup_to_multiple(uint64_t alignment, uint64_t v) {
     return (v + alignment - 1) & ~(alignment - 1);
 }
+
+// TODO: horrible
+inline
+void toku_mutex_init(const toku_instr_key &key, toku_mutex_t *mutex,
+                     const toku_pthread_mutexattr_t *attr)
+{
+#if TOKU_PTHREAD_DEBUG
+//    mutex->valid=true;
+#endif
+    toku_instr_mutex_init(key, *mutex);
+    int r = pthread_mutex_init(&mutex->pmutex, attr);
+    assert_zero(r);
+#if TOKU_PTHREAD_DEBUG
+    mutex->locked = false;
+//    invariant(!mutex->valid);
+    mutex->valid = true;
+    mutex->owner = 0;
+#endif
+}
+
+inline void toku_mutex_destroy(toku_mutex_t *mutex)
+{
+#if TOKU_PTHREAD_DEBUG
+    invariant(mutex->valid);
+    mutex->valid = false;
+    invariant(!mutex->locked);
+#endif
+    toku_instr_mutex_destroy(mutex->psi_mutex);
+    int r = pthread_mutex_destroy(&mutex->pmutex);
+    assert_zero(r);
+}
+

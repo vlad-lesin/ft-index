@@ -2,8 +2,7 @@
 
 #include <stdio.h> // FILE
 
-// Performance instrumentation object identifier type
-typedef unsigned int pfs_key_t;
+#define UU(x) x __attribute__((__unused__))
 
 // TODO: this define disappears after the source is fully converted to
 // toku_uninstrumented
@@ -25,11 +24,54 @@ struct PSI_mutex;
 struct PSI_cond;
 struct PSI_rwlock;
 
-struct toku_mutex_t;
-struct toku_cond_t;
-struct toku_pthread_rwlock_t;
 
 class toku_instr_key;
+
+// TODO: break this include loop
+#include <pthread.h>
+typedef pthread_mutexattr_t toku_pthread_mutexattr_t;
+
+struct toku_mutex_t {
+    pthread_mutex_t pmutex;
+    struct PSI_mutex* psi_mutex;      /* The performance schema instrumentation hook */
+#if TOKU_PTHREAD_DEBUG
+    pthread_t owner; // = pthread_self(); // for debugging
+    bool locked;
+    bool valid;
+    pfs_key_t instr_key_id;
+#endif
+};
+
+struct toku_cond_t {
+    pthread_cond_t pcond;
+    struct PSI_cond *psi_cond;
+#if TOKU_PTHREAD_DEBUG
+    pfs_key_t instr_key_id;
+#endif
+};
+
+#ifdef TOKU_PTHREAD_DEBUG
+#define TOKU_COND_INITIALIZER {.pcond = PTHREAD_COND_INITIALIZER, .psi_cond= nullptr, .instr_key_id=0 }
+#else
+#define TOKU_COND_INITIALIZER {.pcond = PTHREAD_COND_INITIALIZER, .psi_cond= nullptr }
+#endif
+
+struct toku_pthread_rwlock_t {
+    pthread_rwlock_t rwlock;
+    struct PSI_rwlock *psi_rwlock;
+#if TOKU_PTHREAD_DEBUG
+    pfs_key_t instr_key_id;
+#endif
+};
+
+inline
+void toku_mutex_init(const toku_instr_key &key, toku_mutex_t *mutex,
+                     const toku_pthread_mutexattr_t *attr);
+
+inline void toku_mutex_destroy(toku_mutex_t *mutex);
+
+inline
+void toku_mutex_destroy(toku_mutex_t *mutex);
 
 class toku_instr_probe_empty
 {
@@ -309,8 +351,7 @@ void toku_instr_rwlock_unlock(UU(toku_pthread_rwlock_t &rwlock))
 
 
 #else // MYSQL_TOKUDB_ENGINE
-// There can be not only mysql but also mongodb or any other PFS stuff
-#include <toku_instr_mysql.h>
+#include <toku_mysql.h>
 #endif // MYSQL_TOKUDB_ENGINE
 
 extern toku_instr_key toku_uninstrumented;
@@ -352,6 +393,7 @@ extern toku_instr_key *loader_bl_mutex_key;
 extern toku_instr_key *loader_fi_lock_mutex_key;
 extern toku_instr_key *loader_out_mutex_key;
 extern toku_instr_key *result_output_condition_lock_mutex_key;
+extern toku_instr_key *block_allocator_trace_lock_mutex_key;
 extern toku_instr_key *block_table_mutex_key;
 extern toku_instr_key *rollback_log_node_cache_mutex_key;
 extern toku_instr_key *txn_lock_mutex_key;
@@ -401,3 +443,34 @@ extern toku_instr_key *checkpoint_safe_rwlock_key;
 extern toku_instr_key *cachetable_value_key;
 extern toku_instr_key *safe_file_size_lock_rwlock_key;
 extern toku_instr_key *cachetable_disk_nb_rwlock_key;
+
+
+// TODO: horrible
+/*
+inline
+void toku_mutex_init(const toku_instr_key &key, toku_mutex_t *mutex,
+                     const toku_pthread_mutexattr_t *attr)
+{
+    mutex->psi_mutex = toku_instr_mutex_init(key, *mutex);
+    int r = pthread_mutex_init(&mutex->pmutex, attr);
+    assert_zero(r);
+#if TOKU_PTHREAD_DEBUG
+    mutex->locked = false;
+    invariant(!mutex->valid);
+    mutex->valid = true;
+    mutex->owner = 0;
+#endif
+}
+
+inline void toku_mutex_destroy(toku_mutex_t *mutex)
+{
+#if TOKU_PTHREAD_DEBUG
+    invariant(mutex->valid);
+    mutex->valid = false;
+    invariant(!mutex->locked);
+#endif
+    toku_instr_mutex_destroy(mutex->psi_mutex);
+    int r = pthread_mutex_destroy(&mutex->pmutex);
+    assert_zero(r);
+}
+*/

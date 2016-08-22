@@ -59,39 +59,6 @@ typedef struct timespec toku_timespec_t;
 #include <pthread.h>
 typedef pthread_mutexattr_t toku_pthread_mutexattr_t;
 
-struct toku_mutex_t {
-    pthread_mutex_t pmutex;
-    struct PSI_mutex* psi_mutex;      /* The performance schema instrumentation hook */
-#if TOKU_PTHREAD_DEBUG
-    pthread_t owner; // = pthread_self(); // for debugging
-    bool locked;
-    bool valid;
-    pfs_key_t instr_key_id;
-#endif
-};
-
-struct toku_cond_t {
-    pthread_cond_t pcond;
-    struct PSI_cond *psi_cond;
-#if TOKU_PTHREAD_DEBUG
-    pfs_key_t instr_key_id;
-#endif
-};
-
-#ifdef TOKU_PTHREAD_DEBUG
-#define TOKU_COND_INITIALIZER {.pcond = PTHREAD_COND_INITIALIZER, .psi_cond= nullptr, .instr_key_id=0 }
-#else
-#define TOKU_COND_INITIALIZER {.pcond = PTHREAD_COND_INITIALIZER, .psi_cond= nullptr }
-#endif
-
-struct toku_pthread_rwlock_t {
-    pthread_rwlock_t rwlock;
-    struct PSI_rwlock *psi_rwlock;
-#if TOKU_PTHREAD_DEBUG
-    pfs_key_t instr_key_id;
-#endif
-};
-
 typedef struct toku_mutex_aligned {
     toku_mutex_t aligned_mutex __attribute__((__aligned__(64)));
 } toku_mutex_aligned_t;
@@ -389,37 +356,6 @@ inline void toku_cond_broadcast(
   assert_zero(r);
 }
 
-
-// TODO: horrible
-inline
-void toku_mutex_init(const toku_instr_key &key, toku_mutex_t *mutex,
-                     const toku_pthread_mutexattr_t *attr)
-{
-#if TOKU_PTHREAD_DEBUG
-//    mutex->valid=true;
-#endif
-    toku_instr_mutex_init(key, *mutex);
-    int r = pthread_mutex_init(&mutex->pmutex, attr);
-    assert_zero(r);
-#if TOKU_PTHREAD_DEBUG
-    mutex->locked = false;
-//    invariant(!mutex->valid);
-    mutex->valid = true;
-    mutex->owner = 0;
-#endif
-}
-
-inline void toku_mutex_destroy(toku_mutex_t *mutex)
-{
-#if TOKU_PTHREAD_DEBUG
-    invariant(mutex->valid);
-    mutex->valid = false;
-    invariant(!mutex->locked);
-#endif
-    toku_instr_mutex_destroy(mutex->psi_mutex);
-    int r = pthread_mutex_destroy(&mutex->pmutex);
-    assert_zero(r);
-}
 
 #define toku_pthread_rwlock_rdlock(RW) \
     toku_pthread_rwlock_rdlock_with_source_location(RW, __FILE__, __LINE__)
